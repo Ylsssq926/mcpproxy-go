@@ -285,11 +285,26 @@ func (c *Client) ListTools(ctx context.Context) ([]*config.ToolMetadata, error) 
 			paramsJSON = string(schemaBytes)
 		}
 
+		// Spec 056 (FR-A1): capture the tool's declared output schema, if any, so
+		// it is available at call time for output-schema validation. Prefer the raw
+		// schema bytes (lossless, stable hash); fall back to marshalling the typed
+		// OutputSchema. A tool with no declared output schema leaves this empty,
+		// which makes validation a no-op (FR-A7).
+		var outputSchemaJSON string
+		if len(tool.RawOutputSchema) > 0 {
+			outputSchemaJSON = string(tool.RawOutputSchema)
+		} else if tool.OutputSchema.Type != "" {
+			if schemaBytes, err := json.Marshal(tool.OutputSchema); err == nil {
+				outputSchemaJSON = string(schemaBytes)
+			}
+		}
+
 		toolMeta := &config.ToolMetadata{
-			ServerName:  c.config.Name,
-			Name:        tool.Name,
-			Description: tool.Description,
-			ParamsJSON:  paramsJSON,
+			ServerName:       c.config.Name,
+			Name:             tool.Name,
+			Description:      tool.Description,
+			ParamsJSON:       paramsJSON,
+			OutputSchemaJSON: outputSchemaJSON,
 		}
 
 		// Copy tool annotations if any are set
